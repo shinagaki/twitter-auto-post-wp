@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<ruleset name="Twitter Auto Post WordPress Plugin">
+    <description>WordPress Coding Standards for Twitter Auto Post Plugin</description>
+    
+    <!-- WordPress Coding Standards -->
+    <rule ref="WordPress-Core"/>
+    <rule ref="WordPress-Docs"/>
+    <rule ref="WordPress-Extra"/>
+    
+    <!-- Files to check -->
+    <file>.</file>
+    
+    <!-- Exclude patterns -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*.min.js</exclude-pattern>
+    <exclude-pattern>*.min.css</exclude-pattern>
+    
+    <!-- Configure specific rules -->
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="twitter-auto-post"/>
+            </property>
+        </properties>
+    </rule>
+    
+    <!-- Exclude overly strict rules -->
+    <rule ref="WordPress">
+        <!-- Disable comment punctuation rules -->
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        
+        <!-- Disable file naming rules -->
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+        
+        <!-- Disable debug function warnings (useful for development) -->
+        <exclude name="WordPress.PHP.DevelopmentFunctions.error_log_error_log"/>
+        
+        <!-- Allow missing DocBlocks for simple functions -->
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+    </rule>
+    
+    <!-- PHP compatibility -->
+    <config name="testVersion" value="7.4-"/>
+    
+    <!-- Show progress -->
+    <arg value="p"/>
+    <!-- Show sniff codes -->
+    <arg value="s"/>
+    <!-- Use colors -->
+    <arg name="colors"/>
+</ruleset>
