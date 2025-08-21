@@ -3,7 +3,7 @@
  * Plugin Name: Twitter/X Auto Post
  * Plugin URI: https://github.com/shinagaki/twitter-auto-post-wp
  * Description: WordPressの記事投稿時に自動的にTwitter/Xにも投稿するプラグイン。リンクカード表示にも対応
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Shintaro Inagaki
  * Author URI: https://creco.net/
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // プラグインの定数を定義
-define( 'TWITTER_AUTO_POST_VERSION', '1.0.0' );
+define( 'TWITTER_AUTO_POST_VERSION', '1.1.0' );
 define( 'TWITTER_AUTO_POST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TWITTER_AUTO_POST_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
@@ -224,6 +224,10 @@ class TwitterAutoPost {
 		add_action( 'wp_ajax_twitter_test_connection', array( $this, 'test_connection' ) );
 		add_action( 'wp_ajax_twitter_manual_post', array( $this, 'manual_post' ) );
 		add_action( 'publish_post', array( $this, 'auto_post_to_twitter' ) );
+
+		// 投稿画面にMeta Boxを追加
+		add_action( 'add_meta_boxes', array( $this, 'add_post_meta_boxes' ) );
+		add_action( 'save_post', array( $this, 'save_post_meta_data' ) );
 
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
@@ -613,6 +617,12 @@ class TwitterAutoPost {
 			return;
 		}
 
+		// 手動制御チェック：チェックボックスがオフの場合はスキップ
+		$manual_control = get_post_meta( $post_id, '_twitter_manual_post', true );
+		if ( '0' === $manual_control ) {
+			return;
+		}
+
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
 			return;
@@ -683,6 +693,94 @@ class TwitterAutoPost {
 		$data       = array( 'text' => $text );
 
 		return $api_client->request( 'tweets', $data, 'POST' );
+	}
+
+	/**
+	 * 投稿編集画面にMeta Boxを追加
+	 *
+	 * @since 1.1.0
+	 */
+	public function add_post_meta_boxes() {
+		add_meta_box(
+			'twitter_post_control',
+			'Twitter/X投稿設定',
+			array( $this, 'post_meta_box_callback' ),
+			'post',
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Meta Boxの内容を表示
+	 *
+	 * @since 1.1.0
+	 * @param WP_Post $post 投稿オブジェクト
+	 */
+	public function post_meta_box_callback( $post ) {
+		// Nonceフィールドを追加
+		wp_nonce_field( 'twitter_post_meta_nonce', 'twitter_post_meta_nonce' );
+
+		// 現在の設定を取得
+		$already_posted = get_post_meta( $post->ID, '_twitter_posted', true );
+		$manual_control = get_post_meta( $post->ID, '_twitter_manual_post', true );
+
+		// デフォルト状態を決定（未ポストならオン、ポスト済みならオフ）
+		if ( '' === $manual_control ) {
+			$manual_control = empty( $already_posted ) ? '1' : '0';
+		}
+
+		echo '<div style="margin: 10px 0;">';
+		echo '<label style="display: flex; align-items: center; gap: 8px;">';
+		echo '<input type="checkbox" name="twitter_manual_post" value="1" ' . checked( $manual_control, '1', false ) . '>';
+		echo '<span>Twitter/Xに投稿する</span>';
+		echo '</label>';
+
+		if ( ! empty( $already_posted ) ) {
+			echo '<p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">（既に投稿済み）</p>';
+		} else {
+			echo '<p style="margin: 8px 0 0 0; color: #666; font-size: 12px;">（まだ投稿されていません）</p>';
+		}
+
+		// プラグインが無効の場合の警告
+		if ( ! get_option( 'twitter_auto_post_enabled', false ) ) {
+			echo '<p style="margin: 8px 0 0 0; color: #d63638; font-size: 12px;">⚠ プラグイン設定で自動投稿が無効になっています</p>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * 投稿保存時にMeta Dataを保存
+	 *
+	 * @since 1.1.0
+	 * @param int $post_id 投稿ID
+	 */
+	public function save_post_meta_data( $post_id ) {
+		// Nonce確認
+		if ( ! isset( $_POST['twitter_post_meta_nonce'] ) ||
+			! wp_verify_nonce( sanitize_key( $_POST['twitter_post_meta_nonce'] ), 'twitter_post_meta_nonce' ) ) {
+			return;
+		}
+
+		// 自動保存時はスキップ
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		// 権限確認
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return;
+		}
+
+		// postタイプのみ処理
+		if ( 'post' !== get_post_type( $post_id ) ) {
+			return;
+		}
+
+		// チェックボックスの値を保存
+		$manual_post = isset( $_POST['twitter_manual_post'] ) && '1' === $_POST['twitter_manual_post'] ? '1' : '0';
+		update_post_meta( $post_id, '_twitter_manual_post', $manual_post );
 	}
 }
 
